@@ -33,5 +33,27 @@ mongo.connect(
     //...
   }
 );
-
+///
+app.get("/maxCrawlNo", (req, res) => {
+  let cursor = this.db.collection("films").find({});
+  let max = 0,
+    id = null;
+  cursor
+    .forEach(film => {
+      console.log(film.characters.length);
+      const size = film.characters.length;
+      if (size > max) {
+        max = size;
+        id = film._id;
+      }
+    })
+    .then(() => {
+      let cursor = this.db
+        .collection("films")
+        .find({ _id: id, characters: max });
+      //only one object is sent
+      cursor.forEach(c => res.send(c.title));
+    });
+});
+//
 app.listen(port, () => console.log(`Example app listening on port ${port}!`));
