@@ -162,4 +162,120 @@ app.get("/speciesMax", async (req, res) => {
   } catch (e) {}
 });
 //
+app.get("/planetWithMaxPilot", async (req, res) => {
+  try {
+    let aggregate = this.db.collection("vehicles").aggregate([
+      {
+        $group: { _id: { vehicleId: "$id", pilotId: "$pilots" } }
+      },
+      {
+        $project: { vehicleId: "$_id.vehicleId", pilotId: "$_id.pilotId" }
+      },
+      {
+        $lookup: {
+          from: "people",
+          localField: "pilotId",
+          foreignField: "id",
+          as: "peopleObj"
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          vehicleId: 1,
+          pilotId: "$_id.pilotId",
+          pilotName: "$peopleObj.name",
+          homeworld: "$peopleObj.homeworld"
+        }
+      },
+      {
+        $lookup: {
+          from: "planets",
+          localField: "homeworld",
+          foreignField: "id",
+          as: "planetsObj"
+        }
+      },
+      {
+        $unwind: "$planetsObj"
+      },
+      {
+        $group: {
+          _id: {
+            pilotId: "$pilotId",
+            pilotName: "$pilotName",
+            homeworld: "$homeworld",
+            planet: "$planetsObj.name",
+            planet_id: "$planetsObj.id"
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          pilotId: "$_id.pilotId",
+          pilotName: "$_id.pilotName",
+          homeworld: "$_id.homeworld",
+          planet: "$_id.planet",
+          planetPilotsCount: { $size: "$_id.pilotName" },
+          planet_id: "$_id.planet_id"
+        }
+      },
+      {
+        $lookup: {
+          from: "species",
+          localField: "planet_id",
+          foreignField: "homeworld",
+          as: "speciesObj"
+        }
+      },
+      {
+        $lookup: {
+          from: "species",
+          localField: "pilotId",
+          foreignField: "people",
+          as: "speciesObj2"
+        }
+      },
+      //species collection is missing references , I RE-lookup the species with 2 deferant keys references to retrieve the maximum specie record for each pilot and merged into one array
+      {
+        $addFields: {
+          speciesObj: { $concatArrays: ["$speciesObj", "$speciesObj2"] }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            pilotId: "$pilotId",
+            pilotName: "$pilotName",
+            homeworld: "$homeworld",
+            planet: "$planet",
+            planetPilotsCount: "$planetPilotsCount",
+            planet_id: "$planet_id",
+            specie: "$speciesObj.name"
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          planet: "$_id.planet",
+          pilotId: "$_id.pilotId",
+          pilotName: "$_id.pilotName",
+          homeworld: "$_id.homeworld",
+          planetPilotsCount: "$_id.planetPilotsCount",
+          planet_id: "$_id.planet_id",
+          specie: "$_id.specie"
+        }
+      },
+      { $sort: { planetPilotsCount: -1 } }
+    ]);
+    let result = await aggregate.toArray();
+    console.table(result);
+    res.send(result);
+  } catch (e) {
+    console.log(e);
+  }
+});
+//
 app.listen(port, () => console.log(`Example app listening on port ${port}!`));
