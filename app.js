@@ -102,4 +102,64 @@ app.get("/maxPerSeen", async (req, res, callback) => {
   });
 });
 //
+app.get("/speciesMax", async (req, res) => {
+  //What species appeared in the most number of Star Wars films?
+  try {
+    let aggregate = this.db.collection("films").aggregate([
+      { $unwind: "$species" },
+      {
+        $group: {
+          _id: { title: "$title", specie: "$species" },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          specie: "$_id.specie",
+          movie: "$_id.title"
+        }
+      },
+      { $group: { _id: { specie: "$specie" }, movies: { $push: "$movie" } } },
+      {
+        $project: {
+          _id: 0,
+          specie: "$_id.specie",
+          movies: "$movies",
+          count: { $size: "$movies" }
+        }
+      },
+      {
+        $lookup: {
+          from: "species",
+          localField: "specie",
+          foreignField: "id",
+          as: "speciesAppeared"
+        }
+      },
+      { $unwind: "$speciesAppeared" },
+      {
+        $group: {
+          _id: {
+            specieId: "$specie",
+            specieName: "$speciesAppeared.name",
+            appearCount: "$count"
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          specieId: "$_id.specieId",
+          specieName: "$_id.specieName",
+          appearCount: "$_id.appearCount"
+        }
+      },
+      { $sort: { appearCount: -1 } }
+    ]);
+    let result = await aggregate.toArray();
+    res.send(result);
+  } catch (e) {}
+});
+//
 app.listen(port, () => console.log(`Example app listening on port ${port}!`));
