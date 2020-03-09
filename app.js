@@ -56,4 +56,50 @@ app.get("/maxCrawlNo", (req, res) => {
     });
 });
 //
+app.get("/maxPerSeen", async (req, res, callback) => {
+  //filter charecters by ID and its appearance count
+  let aggregate = this.db
+    .collection("films")
+    .aggregate([
+      { $unwind: "$characters" },
+      { $group: { _id: "$characters", count: { $sum: 1 } } },
+      { $project: { _id: 1, count: 1 } },
+      { $sort: { count: -1 } }
+    ]);
+  //convert to array
+  const filmsArray = await aggregate.toArray();
+  //calculate max count
+  let maxCount = Math.max.apply(
+    Math,
+    filmsArray.map(function(o) {
+      return o.count;
+    })
+  );
+  let maxAppearance = [];
+  console.table(filmsArray);
+  filmsArray.forEach(element => {
+    if (maxCount == element.count) {
+      let joined = maxAppearance.concat(element);
+      maxAppearance = joined;
+    }
+  });
+  console.log("Max Appearance people:");
+  console.table(maxAppearance);
+  //retrieve each person name by ID
+  let starsAppeared = [];
+  maxAppearance.forEach(async element => {
+    let cursor = this.db.collection("people").find({ id: element._id });
+    cursor
+      .forEach(element => {
+        let joined = starsAppeared.concat(element);
+        starsAppeared = joined;
+      })
+      .finally(() => {
+        console.log("stars appeared :");
+        console.log(JSON.stringify(starsAppeared));
+        res.send(starsAppeared);
+      });
+  });
+});
+//
 app.listen(port, () => console.log(`Example app listening on port ${port}!`));
