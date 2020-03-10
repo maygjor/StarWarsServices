@@ -1,6 +1,6 @@
 const express = require("express");
 const app = express();
-const port = 2700;
+const port = process.env.PORT || 3000;
 const mongo = require("mongodb").MongoClient;
 const assert = require("assert");
 var cors = require("cors");
